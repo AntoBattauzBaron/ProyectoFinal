@@ -11,6 +11,7 @@ import tkinter as tk
 from tkinter import filedialog
 import pandas as pd
 
+
 # %%
 """
     Permite seleccionar la carpeta con los archivos
@@ -93,8 +94,9 @@ def obtener_datos_EMG(datos_movimiento, datos_ojos_abiertos, datos_ojos_cerrados
     emg_ojos_cerrados = datos_ojos_cerrados[["EXG Channel 0", "EXG Channel 1"]].rename(columns={"EXG Channel 0": "EMGizq", "EXG Channel 1": "EMGder"})
     
     return emg_movimiento, emg_ojos_abiertos, emg_ojos_cerrados
-    
-    
+
+#%%
+
     
     
     
