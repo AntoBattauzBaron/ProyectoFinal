@@ -6,6 +6,90 @@ Created on Wed Aug 12 13:39:28 2026
 """
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.signal import welch
+from scipy import fft
+
+def graficar_espectro_EEG(eeg_mov, eeg_OA, eeg_OC, fs, fmax=60):
+    """
+    Grafica el espectro de potencia (metodo de Welch) de los 3 canales
+    de EEG (C3, C4, Cz) para las 3 condiciones, en una grilla 3x3.
+    Mismo criterio de armado que graficar_EEG.
+    """
+    condiciones = {
+        "Movimiento": eeg_mov,
+        "Ojos abiertos": eeg_OA,
+        "Ojos cerrados": eeg_OC,
+    }
+    canales = ["C3", "C4", "Cz"]
+    #nperseg = int(fs * 2)  # ventanas de 2 s para el promediado de Welch
+
+    fig, axs = plt.subplots(3, 3, figsize=(13, 7), sharex='col')
+
+    for i, (nombre_cond, df) in enumerate(condiciones.items()):
+        for j, canal in enumerate(canales):
+            ax = axs[i, j]
+            
+            senial_fft = fft.fft(df[canal].values)
+            freq = fft.fftfreq(len(df[canal].values), d=1/fs)
+            f =freq[np.where(freq >= 0)] #tomamos solo medio espectro
+            mag =np.abs(senial_fft)/len(df[canal].values) #por parseval
+            mag = mag[np.where(freq >= 0)] #tomo solo medio espectro
+            mag[1:len(mag)-1] = 2*mag[1:len(mag)-1] #para conservar la energía del espectro completo
+            
+            ax.plot(f, mag, linewidth=0.8, color="#2c5f8a")
+            ax.grid(alpha=0.3)
+            ax.set_xlim(0, fmax)
+            ax.set_ylim(0, 5)
+            if i == 0:
+                ax.set_title(canal, fontsize=11)
+            if j == 0:
+                ax.set_ylabel(f"{nombre_cond}\n Amplitud TF", fontsize=9)
+            if i == 2:
+                ax.set_xlabel("Frecuencia [Hz]")
+
+    fig.suptitle("Espectro de EEG por condicion (FFT)", fontsize=13)
+    fig.tight_layout()
+    return fig
+
+
+def graficar_espectro_EMG(emg_mov, emg_OA, emg_OC, fs, fmax=400):
+    """
+    Igual que graficar_espectro_EEG pero para los 2 canales de EMG.
+    """
+    condiciones = {
+        "Movimiento": emg_mov,
+        "Ojos abiertos": emg_OA,
+        "Ojos cerrados": emg_OC,
+    }
+    canales = ["EMGizq", "EMGder"]
+
+    fig, axs = plt.subplots(3, 2, figsize=(9, 7), sharex='col')
+
+    for i, (nombre_cond, df) in enumerate(condiciones.items()):
+        for j, canal in enumerate(canales):
+            ax = axs[i, j]
+            
+            senial_fft = fft.fft(df[canal].values)
+            freq = fft.fftfreq(len(df[canal].values), d=1/fs)
+            f =freq[np.where(freq >= 0)] #tomamos solo medio espectro
+            mag =np.abs(senial_fft)/len(df[canal].values) #por parseval
+            mag = mag[np.where(freq >= 0)] #tomo solo medio espectro
+            mag[1:len(mag)-1] = 2*mag[1:len(mag)-1] #para conservar la energía del espectro completo
+
+            ax.plot(f, mag, linewidth=0.8, color="#8a3c2c")
+            ax.grid(alpha=0.3)
+            ax.set_xlim(0, fmax)
+            ax.set_ylim(0, 10)
+            if i == 0:
+                ax.set_title(canal, fontsize=11)
+            if j == 0:
+                ax.set_ylabel(f"{nombre_cond}\n Amplitud TF", fontsize=9)
+            if i == 2:
+                ax.set_xlabel("Frecuencia [Hz]")
+
+    fig.suptitle("Espectro de EMG por condicion", fontsize=13)
+    fig.tight_layout()
+    return fig
 """
     Grafica los 3 canales de EEG (C3, C4, Cz) para las 3 condiciones
     en una grilla de 3 filas x 3 columnas, todo en una sola figura.
