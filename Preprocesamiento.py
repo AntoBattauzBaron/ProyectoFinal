@@ -41,10 +41,48 @@ def armar_raw(emg_df, eeg_df):
     return mne.io.RawArray(datos_v, info) #Crea un objeto de datos a partir de arreglos de registros crudos
 
 # Con los datos en las condiciones necesarias se puede filtrar 
-def limpiar(raw):
-    raw.notch_filter(freqs=50, picks='all') #Filtra todos los canales, con un filtro Hamming (FIR) de fase 0 de -53 dB
-    raw.filter(l_freq=1.0,  h_freq=None, picks='eeg')
-    raw.filter(l_freq=20.0, h_freq=None, picks='emg')
+#%%
+"""
+    Aplica el acondicionamiento en frecuencia a un objeto Raw de MNE que ya
+    contiene los 5 canales (EMGizq, EMGder, C3, C4, Cz) con sus ch_types
+    asignados. Consideraciones
+    
+    1. Pasa-altos de EMG con Butterworth de orden 1 (method='iir',
+       phase='zero'), que MNE aplica adelante y atrás sobre la señal
+       (equivalente a filtfilt), logrando una atenuación resultante de
+       orden 2 (40 dB/decada) con fase cero. La frecuencia de diseño
+       (fc_emg_diseño) está corregida para que el corte -3dB EFECTIVO, 
+       ya con la doble pasada aplicada, caiga en 20 Hz.
+    
+    Parametros
+    ----------
+    raw : mne.io.RawArray
+        Objeto Raw con los 5 canales EMG/EEG ya armados (ver armar_raw),
+        con los tipos de canal ('eeg' / 'emg') correctamente asignados,
+        ya que los filtros de EEG y EMG se aplican por separado mediante
+        picks.
+    
+    Retorna
+    -------
+    mne.io.RawArray
+        El mismo objeto raw, ya filtrado. 
+"""
+def limpiar_emg(raw): 
+    tmin = 500 / raw.info['sfreq'] #Recorto las primeras 500 muestras, saco transitorios
+    raw.crop(tmin=tmin)
+    
+    pasadas = 2
+    orden = 1
+    factor = (2**(1/pasadas) - 1)**(1/(2*orden))
+    fc_deseada_pa = 20 #Se debe corregir la frecuencia de corte por doble pasada
+    fc_deseada_pb = 450 #Se debe corregir la frecuencia de corte por doble pasada
+
+    raw.filter(l_freq = factor*fc_deseada_pa, h_freq=None, picks='emg',
+               method='iir', iir_params = dict(order=1, ftype='butter', phase='zero')) #Recomendación técnica
+    
+    armonicos_50hz = np.arange(50, fs/2, 50)  # 50, 100, 150, ..., hasta Nyquist
+    raw.notch_filter(freqs=armonicos_50hz,notch_widths=2,trans_bandwidth=3.0, picks='all') #Saca todos los armónicos de la frecuencia de línea
+    
     return raw
 
 def raw_a_dataframes(raw):
@@ -67,9 +105,9 @@ raw_mov = armar_raw(emg_mov, eeg_mov)
 raw_OA  = armar_raw(emg_OA, eeg_OA)
 raw_OC  = armar_raw(emg_OC, eeg_OC)
 
-raw_mov = limpiar(raw_mov)
-raw_OA  = limpiar(raw_OA)
-raw_OC  = limpiar(raw_OC)
+raw_mov = limpiar_emg(raw_mov)
+raw_OA  = limpiar_emg(raw_OA)
+raw_OC  = limpiar_emg(raw_OC)
 
 eeg_mov_f, emg_mov_f = raw_a_dataframes(raw_mov)
 eeg_OA_f,  emg_OA_f  = raw_a_dataframes(raw_OA)

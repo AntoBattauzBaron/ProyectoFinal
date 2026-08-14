@@ -6,12 +6,11 @@ Created on Wed Aug 12 13:39:28 2026
 """
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.signal import welch
 from scipy import fft
 
 def graficar_espectro_EEG(eeg_mov, eeg_OA, eeg_OC, fs, fmax=60):
     """
-    Grafica el espectro de potencia (metodo de Welch) de los 3 canales
+    Grafica el espectro de potencia de los 3 canales
     de EEG (C3, C4, Cz) para las 3 condiciones, en una grilla 3x3.
     Mismo criterio de armado que graficar_EEG.
     """
@@ -74,12 +73,12 @@ def graficar_espectro_EMG(emg_mov, emg_OA, emg_OC, fs, fmax=400):
             f =freq[np.where(freq >= 0)] #tomamos solo medio espectro
             mag =np.abs(senial_fft)/len(df[canal].values) #por parseval
             mag = mag[np.where(freq >= 0)] #tomo solo medio espectro
-            mag[1:len(mag)-1] = 2*mag[1:len(mag)-1] #para conservar la energía del espectro completo
+            mag[1:len(mag)] = 2*mag[1:len(mag)] #para conservar la energía del espectro completo
 
             ax.plot(f, mag, linewidth=0.8, color="#8a3c2c")
             ax.grid(alpha=0.3)
-            ax.set_xlim(0, fmax)
-            ax.set_ylim(0, 10)
+            ax.set_xlim(0, 450)
+            ax.set_ylim(0, 2)
             if i == 0:
                 ax.set_title(canal, fontsize=11)
             if j == 0:
@@ -197,6 +196,7 @@ def graficar_EMG(emg_mov, emg_OA, emg_OC, fs, unidades="uV", duracion_seg=None):
             ax = axs[i, j]
             ax.plot(t, df[canal].values, linewidth=0.4, color="#8a3c2c")
             ax.grid(alpha=0.3)
+            ax.set_xlim(0, 10)
             if i == 0:
                 ax.set_title(canal, fontsize=11)
             if j == 0:
