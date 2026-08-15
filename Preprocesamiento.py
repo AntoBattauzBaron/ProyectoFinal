@@ -10,6 +10,8 @@ import mne
 import AccesoArchivos as Acceso
 import Graficacion as gf
 import pandas as pd
+import numpy as np
+from scipy import signal
 
 
 #%%
@@ -41,6 +43,7 @@ def armar_raw(emg_df, eeg_df):
     return mne.io.RawArray(datos_v, info) #Crea un objeto de datos a partir de arreglos de registros crudos
 
 # Con los datos en las condiciones necesarias se puede filtrar 
+
 #%%
 """
     Aplica el acondicionamiento en frecuencia a un objeto Raw de MNE que ya
@@ -53,6 +56,13 @@ def armar_raw(emg_df, eeg_df):
        orden 2 (40 dB/decada) con fase cero. La frecuencia de diseño
        (fc_emg_diseño) está corregida para que el corte -3dB EFECTIVO, 
        ya con la doble pasada aplicada, caiga en 20 Hz.
+    
+    2. Filtra en 50 Hz y armónicos usando la info de ventanas de 2.2 segundos
+        y en sus armónicos, atenuando con un ancho de banda de 2 Hz que rodean 
+        la frecuencia central de interés por variaciones en la red eléctrica
+    
+    3.  Filtro pasa bajos con frecuencia de corte real en 450 Hz, corregida
+        por doble pasada. Sigue las recomendaciones de -12 dB/década
     
     Parametros
     ----------
@@ -67,6 +77,7 @@ def armar_raw(emg_df, eeg_df):
     mne.io.RawArray
         El mismo objeto raw, ya filtrado. 
 """
+
 def limpiar_emg(raw): 
     tmin = 500 / raw.info['sfreq'] #Recorto las primeras 500 muestras, saco transitorios
     raw.crop(tmin=tmin)
@@ -75,7 +86,6 @@ def limpiar_emg(raw):
     orden = 1
     factor = (2**(1/pasadas) - 1)**(1/(2*orden))
     fc_deseada_pa = 20 #Se debe corregir la frecuencia de corte por doble pasada
-    fc_deseada_pb = 450 #Se debe corregir la frecuencia de corte por doble pasada
 
     raw.filter(l_freq = factor*fc_deseada_pa, h_freq=None, picks='emg',
                method='iir', iir_params = dict(order=1, ftype='butter', phase='zero')) #Recomendación técnica
@@ -83,8 +93,44 @@ def limpiar_emg(raw):
     armonicos_50hz = np.arange(50, fs/2, 50)  # 50, 100, 150, ..., hasta Nyquist
     raw.notch_filter(freqs=armonicos_50hz,notch_widths=2,trans_bandwidth=3.0, picks='all') #Saca todos los armónicos de la frecuencia de línea
     
+    fc_pb_diseño = (fs/np.pi) * np.arctan(
+    np.tan(np.pi*450.0/fs) / (2**(1/2)-1)**(1/(2*1)))
+    
+    raw.filter(l_freq = None, h_freq=fc_pb_diseño, picks='emg',
+               method='iir', iir_params = dict(order=1, ftype='butter', phase='zero')) #Recomendación técnica
+    
     return raw
 
+#%%
+def rectificar_hilbert(raw):
+    raw_rect = raw.copy()
+    datos = raw_rect.get_data()
+    idx_emg = mne.pick_types(raw_rect.info, emg=True, eeg=False)
+
+    for i in idx_emg:
+        z = signal.hilbert(datos[i])   # señal analítica
+        datos[i] = np.abs(z)           # envolvente = rectificado de onda completa
+
+    raw_rect._data = datos
+    return raw_rect
+
+
+
+
+#%%
+"""
+    Toma los datos agrupados para ser filtrados y los devuelve a su estructura original
+    
+    Parametros
+    ----------
+    raw : mne.io.RawArray
+        Objeto Raw con los 5 canales EMG/EEG ya filtrados
+    
+    Retorna
+    -------
+# %%
+    dataframes en la estructura original    
+"""
 def raw_a_dataframes(raw):
     datos_uv = raw.get_data() * 1e6  # de Volts (MNE) otra vez a uV
     df = pd.DataFrame(datos_uv.T, columns=raw.ch_names)
@@ -114,11 +160,16 @@ eeg_OA_f,  emg_OA_f  = raw_a_dataframes(raw_OA)
 eeg_OC_f,  emg_OC_f  = raw_a_dataframes(raw_OC)
 
 gf.graficar_EEG(eeg_mov_f, eeg_OA_f, eeg_OC_f, fs, unidades="uV",duracion_seg=5)
-gf.graficar_EMG(emg_mov_f, emg_OA_f, emg_OC_f, fs, unidades="uV",duracion_seg=10)
+gf.graficar_EMG(emg_mov_f, emg_OA_f, emg_OC_f, fs, unidades="uV",duracion_seg=60)
 
 gf.graficar_espectro_EEG(eeg_mov, eeg_OA, eeg_OC, fs)
 gf.graficar_espectro_EMG(emg_mov, emg_OA, emg_OC, fs)
 
 gf.graficar_espectro_EEG(eeg_mov_f, eeg_OA_f, eeg_OC_f, fs)
 gf.graficar_espectro_EMG(emg_mov_f, emg_OA_f, emg_OC_f, fs)
+
+rect= rectificar_hilbert(raw_mov)
+eeg_mov_f_r, emg_mov_f_r = raw_a_dataframes(rect)
+gf.graficar_EMG(emg_mov_f_r, emg_OA_f, emg_OC_f, fs, unidades="uV",duracion_seg=60)
+
 

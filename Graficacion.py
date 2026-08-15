@@ -77,7 +77,7 @@ def graficar_espectro_EMG(emg_mov, emg_OA, emg_OC, fs, fmax=400):
 
             ax.plot(f, mag, linewidth=0.8, color="#8a3c2c")
             ax.grid(alpha=0.3)
-            ax.set_xlim(0, 450)
+            ax.set_xlim(0, 500)
             ax.set_ylim(0, 2)
             if i == 0:
                 ax.set_title(canal, fontsize=11)
@@ -196,7 +196,6 @@ def graficar_EMG(emg_mov, emg_OA, emg_OC, fs, unidades="uV", duracion_seg=None):
             ax = axs[i, j]
             ax.plot(t, df[canal].values, linewidth=0.4, color="#8a3c2c")
             ax.grid(alpha=0.3)
-            ax.set_xlim(0, 10)
             if i == 0:
                 ax.set_title(canal, fontsize=11)
             if j == 0:
