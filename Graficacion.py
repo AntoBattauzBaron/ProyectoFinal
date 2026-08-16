@@ -77,7 +77,7 @@ def graficar_espectro_EMG(emg_mov, emg_OA, emg_OC, fs, fmax=400):
 
             ax.plot(f, mag, linewidth=0.8, color="#8a3c2c")
             ax.grid(alpha=0.3)
-            ax.set_xlim(0, 500)
+            ax.set_xlim(0, 400)
             ax.set_ylim(0, 2)
             if i == 0:
                 ax.set_title(canal, fontsize=11)
