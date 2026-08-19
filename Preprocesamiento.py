@@ -78,8 +78,10 @@ def armar_raw(emg_df, eeg_df):
 """
 
 def limpiar_emg(raw): 
-    tmin = 500 / raw.info['sfreq'] #Recorto las primeras 500 muestras, saco transitorios
+    tmin = 500 / raw.info['sfreq'] #Recorto las primeras 500 muestras, saco transitorios ¡Saca de eeg tmb!
     raw.crop(tmin=tmin)
+    
+    fs = raw.info['sfreq']
     
     pasadas = 2
     orden = 1
@@ -87,10 +89,10 @@ def limpiar_emg(raw):
     fc_deseada_pa = 20 #Se debe corregir la frecuencia de corte por doble pasada
 
     raw.filter(l_freq = factor*fc_deseada_pa, h_freq=None, picks='emg',
-               method='iir', iir_params = dict(order=1, ftype='butter', phase='zero')) #Recomendación técnica
+               method='iir', iir_params = dict(order=1, ftype='butter'), phase='zero') #Recomendación técnica
     
     armonicos_50hz = np.arange(50, fs/2, 50)  # 50, 100, 150, ..., hasta Nyquist
-    raw.notch_filter(freqs=armonicos_50hz,notch_widths=2,trans_bandwidth=3.0, picks='all') #Saca todos los armónicos de la frecuencia de línea
+    raw.notch_filter(freqs=armonicos_50hz,notch_widths=2,trans_bandwidth=3.0, picks='emg') #Saca todos los armónicos de la frecuencia de línea
     
     fc_pb_diseño = (fs/np.pi) * np.arctan(
     np.tan(np.pi*450.0/fs) / (2**(1/2)-1)**(1/(2*1)))
@@ -161,7 +163,7 @@ def rectificar_emg_hilbert(raw):
     mne.io.RawArray
         El mismo objeto raw, con los canales EMG suavizados.
 """
-def suavizar_envolvente(raw, fc_deseado=45.0, orden=1, pasadas=2):
+def suavizar_envolvente(raw, fc_deseado=5, orden=1, pasadas=2):
     fs = raw.info['sfreq']
     factor = (2**(1/pasadas) - 1)**(1/(2*orden)) #Corrección simple porque está lejos de la f nyquist
     fc_diseño = (fs/np.pi) * np.arctan(np.tan(np.pi*fc_deseado/fs) / factor)
@@ -181,8 +183,8 @@ def suavizar_envolvente(raw, fc_deseado=45.0, orden=1, pasadas=2):
        phase='zero'), que MNE aplica adelante y atrás sobre la señal
        (equivalente a filtfilt), logrando una atenuación resultante de
        orden 2 con fase cero. La frecuencia de diseño
-       (fc_emg_diseño) está corregida para que el corte -3dB EFECTIVO, 
-       ya con la doble pasada aplicada, caiga en 20 Hz.
+       está corregida para que el corte -3dB EFECTIVO, 
+       ya con la doble pasada aplicada, caiga en 1 Hz.
     
     Parametros
     ----------
@@ -199,19 +201,18 @@ def suavizar_envolvente(raw, fc_deseado=45.0, orden=1, pasadas=2):
 """
 
 def limpiar_eeg(raw): 
-    tmin = 500 / raw.info['sfreq'] #Recorto las primeras 500 muestras, saco transitorios
-    raw.crop(tmin=tmin)
     
     pasadas = 2
     orden = 1
     factor = (2**(1/pasadas) - 1)**(1/(2*orden))
     fc_deseada_pa = 1  #Se debe corregir la frecuencia de corte por doble pasada1
+    fs = raw.info['sfreq']
 
     raw.filter(l_freq = factor*fc_deseada_pa, h_freq=None, picks='eeg',
-               method='iir', iir_params = dict(order=1, ftype='butter', phase='zero')) #Recomendación técnica
+               method='iir', iir_params = dict(order=1, ftype='butter'), phase='zero') #Recomendación técnica
     
     armonicos_50hz = np.arange(50, fs/2, 50)  # 50, 100, 150, ..., hasta Nyquist
-    raw.notch_filter(freqs=armonicos_50hz,notch_widths=2,trans_bandwidth=3.0, picks='all') #Saca todos los armónicos de la frecuencia de línea
+    raw.notch_filter(freqs=armonicos_50hz,notch_widths=2,trans_bandwidth=3.0, picks='eeg') #Saca todos los armónicos de la frecuencia de línea
     
     fc_pb_diseño = (fs/np.pi) * np.arctan(
     np.tan(np.pi*70/fs) / (2**(1/2)-1)**(1/(2*1)))
@@ -246,28 +247,29 @@ datos_movimiento, datos_ojos_abiertos, datos_ojos_cerrados = Acceso.cargar_datos
 eeg_mov, eeg_OA, eeg_OC = Acceso.obtener_datos_EEG(datos_movimiento, datos_ojos_abiertos, datos_ojos_cerrados)
 emg_mov, emg_OA, emg_OC = Acceso.obtener_datos_EMG(datos_movimiento, datos_ojos_abiertos, datos_ojos_cerrados)
 
-fs = 2000
 nombres_canales = ['EMGizq', 'EMGder', 'C3', 'C4', 'Cz']
 tipos_canales   = ['emg', 'emg', 'eeg', 'eeg', 'eeg']
+
+fs = 2000
 
 raw_mov = armar_raw(emg_mov, eeg_mov)
 raw_OA  = armar_raw(emg_OA, eeg_OA)
 raw_OC  = armar_raw(emg_OC, eeg_OC)
 
-# raw_mov = limpiar_emg(raw_mov)
-# raw_OA  = limpiar_emg(raw_OA)
-# raw_OC  = limpiar_emg(raw_OC)
+raw_mov = limpiar_emg(raw_mov)
+raw_OA  = limpiar_emg(raw_OA)
+raw_OC  = limpiar_emg(raw_OC)
 
-raw_mov = limpiar_eeg(raw_mov)
-raw_OA  = limpiar_eeg(raw_OA)
-raw_OC  = limpiar_eeg(raw_OC)
+# raw_mov = limpiar_eeg(raw_mov)
+# raw_OA  = limpiar_eeg(raw_OA)
+# raw_OC  = limpiar_eeg(raw_OC)
 
 eeg_mov_f, emg_mov_f = raw_a_dataframes(raw_mov)
 eeg_OA_f,  emg_OA_f  = raw_a_dataframes(raw_OA)
 eeg_OC_f,  emg_OC_f  = raw_a_dataframes(raw_OC)
 
 gf.graficar_EEG(eeg_mov_f, eeg_OA_f, eeg_OC_f, fs, unidades="uV",duracion_seg=40)
-gf.graficar_EMG(emg_mov_f, emg_OA_f, emg_OC_f, fs, unidades="uV",duracion_seg=60)
+gf.graficar_EMG(emg_mov_f, emg_OA_f, emg_OC_f, fs, unidades="uV",duracion_seg=10)
 
 gf.graficar_espectro_EEG(eeg_mov, eeg_OA, eeg_OC, fs)
 #gf.graficar_espectro_EMG(emg_mov, emg_OA, emg_OC, fs)
@@ -275,9 +277,11 @@ gf.graficar_espectro_EEG(eeg_mov, eeg_OA, eeg_OC, fs)
 gf.graficar_espectro_EEG(eeg_mov_f, eeg_OA_f, eeg_OC_f, fs)
 #gf.graficar_espectro_EMG(emg_mov_f, emg_OA_f, emg_OC_f, fs)
 
-# rect= rectificar_emg_hilbert(raw_mov)
-# suavizado = suavizar_envolvente(rect)
-# eeg_mov_f_r, emg_mov_f_r = raw_a_dataframes(suavizado)
-# gf.graficar_EMG(emg_mov_f_r, emg_OA_f, emg_OC_f, fs, unidades="uV",duracion_seg=20)
+# %%
+rect= rectificar_emg_hilbert(raw_mov)
+suavizado = suavizar_envolvente(rect)
+eeg_mov_f_r, emg_mov_f_r = raw_a_dataframes(suavizado)
+gf.graficar_EMG(emg_mov_f_r, emg_OA_f, emg_OC_f, fs, unidades="uV",duracion_seg=8)
+
 
 
